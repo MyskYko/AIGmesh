@@ -17,6 +17,7 @@
   Revision    [$Id: bmcMesh.c,v 1.00 2005/06/20 00:00:00 alanmi Exp $]
 
 ***********************************************************************/
+#include <algorithm>
 
 #include <simp/SimpSolver.h>
 
@@ -119,17 +120,17 @@ void Bmc_MeshTest2( aigman * p, int X, int Y, int T, int fVerbose )
     Me[X].resize(2);
 
     pN.resize(G + 1);
-    for ( i = 0; i < G + 1; i++ )
+    for ( i = I; i < G; i++ )
         pN[i].resize(2);
     
     // init the graph
-    for ( i = 0; i < I; i++ )
-        pN[i][0] = pN[i][1] = -1;
-    for(int i = I + 1; i < G + 1; i++)
+    for ( i = I + 1; i < G + 1; i++ )
     {
 	pN[i-1][0] = (p->vObjs[i + i] >> 1) - 1;
 	pN[i-1][1] = (p->vObjs[i + i + 1] >> 1) - 1;
     }
+    for ( i = 0; i < p->nPos; i++ )
+        pN[G].push_back((p->vPos[i] >> 1) - 1);
     if ( fVerbose )
     {
         printf( "The graph has %d inputs: ", p->nPis );
@@ -163,20 +164,31 @@ void Bmc_MeshTest2( aigman * p, int X, int Y, int T, int fVerbose )
     for ( x = 0; x < X; x++ )
     for ( y = 0; y < Y; y++ )
     {
+        Glucose::vec<Glucose::Lit> pLits;
+	      
         int iTVar = Bmc_MeshTVar( Me, x, y );
         int iGVar = Bmc_MeshGVar( Me, x, y );
 
         if ( x == 0 || x == X-1 || y == 0 || y == Y-1 ) // boundary
         {
+	    /*
             // time 0 is required
             for ( t = 0; t < T; t++ )
             {
                 RetValue = pSat->addClause( Glucose::mkLit( iTVar+t, (int)(t > 0) ) );  assert( RetValue );
             }
+	    */
             // internal nodes are not allowed
             for ( g = I; g < G; g++ )
             {
-                RetValue = pSat->addClause( Glucose::mkLit( iGVar+g, 1 ) );  assert( RetValue );
+	        pLits.clear();
+	        pLits.push(Glucose::mkLit( iGVar+g, 1 ));
+		if ( std::find(pN[G].begin(), pN[G].end(), g) != pN[G].end() )
+		{
+		    pLits.push(Glucose::mkLit( iTVar, 1 ));
+		    nClauses++;
+		}
+		RetValue = pSat->addClause( pLits );  assert( RetValue );
             }
         }
         else // not a boundary
@@ -311,18 +323,117 @@ void Bmc_MeshTest2( aigman * p, int X, int Y, int T, int fVerbose )
         }
     }
 
-    // final condition
+
+    for ( x = 0; x < X; x++ )
+    for ( y = 0; y < Y; y++ )
+    if ( x == 0 || x == X-1 || y == 0 || y == Y-1 ) // boundary
     {
-        int iGVar = Bmc_MeshGVar( Me, 1, 1 ) + G-1;
-        RetValue = pSat->addClause( Glucose::mkLit( iGVar, 0 ) );
-        if ( RetValue == 0 )
+        Glucose::vec<Glucose::Lit> pLits;
+
+        int iTVar = Bmc_MeshTVar( Me, x, y );
+        int iGVar = Bmc_MeshGVar( Me, x, y );
+        int iCVar = Bmc_MeshCVar( Me, x, y );
+        int iUVar = Bmc_MeshUVar( Me, x, y );
+
+        // 0=left  1=up  2=right  3=down
+        int iTVars; 
+        int iGVars;
+
+	if ( x == X - 1 )
+	{
+	    iTVars = Bmc_MeshTVar( Me, x-1, y );
+	    iGVars = Bmc_MeshGVar( Me, x-1, y );
+	}
+
+	if ( y == Y - 1 )
+	{
+	    iTVars = Bmc_MeshTVar( Me, x, y-1 );
+	    iGVars = Bmc_MeshGVar( Me, x, y-1 );
+	}
+
+	if ( x == 0 )
+	{
+	    iTVars = Bmc_MeshTVar( Me, x+1, y );
+	    iGVars = Bmc_MeshGVar( Me, x+1, y );
+	}
+
+	if ( y == 0 )
+	{
+	    iTVars = Bmc_MeshTVar( Me, x, y+1 );
+	    iGVars = Bmc_MeshGVar( Me, x, y+1 );
+	}
+
+        // condition when cell is used
+        for ( g = 0; g < I; g++ )
         {
-            printf( "Problem has no solution. " );
-            delete pSat;
-            return;
+	    pLits.clear();
+            pLits.push(Glucose::mkLit( iGVar+g, 1 ));
+            pLits.push(Glucose::mkLit( iUVar, 0 ));
+            RetValue = pSat->addClause( pLits );  assert( RetValue );
+            nClauses++;
+        }
+	for ( int g : pN[G] )
+        {
+	    pLits.clear();
+            pLits.push(Glucose::mkLit( iGVar+g, 1 ));
+            pLits.push(Glucose::mkLit( iUVar, 0 ));
+            RetValue = pSat->addClause( pLits );  assert( RetValue );
+            nClauses++;
+        }
+
+        // at least one time is used
+	pLits.clear();
+        pLits.push(Glucose::mkLit( iUVar, 1 ));
+        for ( t = 0; t < T; t++ )
+	    pLits.push(Glucose::mkLit( iTVar+t, 0 ));
+        RetValue = pSat->addClause( pLits );  assert( RetValue );
+        nClauses++;
+
+        // constraints for each time
+	// buffer
+	for ( int g : pN[G] )
+	for ( t = 1; t < T; t++ )
+	{
+	    pLits.clear();
+	    pLits.push(Glucose::mkLit( iTVar+t, 1 ));
+	    pLits.push(Glucose::mkLit( iGVar+g, 1 ));
+	    pLits.push(Glucose::mkLit( iTVars+t-1, 0 ));
+	    RetValue = pSat->addClause( pLits );  assert( RetValue );
+	    
+	    pLits.clear();
+	    pLits.push(Glucose::mkLit( iTVar+t, 1 ));
+	    pLits.push(Glucose::mkLit( iGVar+g, 1 ));
+	    pLits.push(Glucose::mkLit( iGVars+g, 0 ));
+	    RetValue = pSat->addClause( pLits );  assert( RetValue );
+	    
+	    nClauses += 2;
         }
     }
 
+
+    // final condition
+    {
+        Glucose::vec<Glucose::Lit> pLits;
+        for ( i = 0; i < p->nPos; i++ )
+	{
+	    pLits.clear();
+	    for ( x = 0; x < X; x++ )
+	    for ( y = 0; y < Y; y++ )
+	    if ( x == 0 || x == X-1 || y == 0 || y == Y-1 ) // boundary
+	    {
+		int iGVar = Bmc_MeshGVar( Me, x, y ) + (p->vPos[i] >> 1) - 1;
+		pLits.push( Glucose::mkLit( iGVar, 0 ) );
+	    }
+	    RetValue = pSat->addClause( pLits );
+	    if ( RetValue == 0 )
+	    {
+		printf( "Problem has no solution. " );
+		delete pSat;
+		return;
+	    }
+	    nClauses++;
+	}
+    }
     if ( fVerbose )
         printf( "Finished adding %d clauses. Started solving...\n", nClauses );
 
@@ -340,20 +451,22 @@ void Bmc_MeshTest2( aigman * p, int X, int Y, int T, int fVerbose )
         for ( x = 0; x < X; x++ )
         for ( y = 0; y < Y; y++ )
         {
-            if ( x == 0 || x == X-1 || y == 0 || y == Y-1 ) // boundary
-            {
-                int iGVar = Bmc_MeshGVar( Me, x, y );
-                nAddClauses += Bmc_MeshAddOneHotness2( pSat, iGVar, iGVar + G );
-            }
-            else
-            {
-                int iTVar = Bmc_MeshTVar( Me, x, y );
-                int iGVar = Bmc_MeshGVar( Me, x, y );
-                int iCVar = Bmc_MeshCVar( Me, x, y );
-                nAddClauses += Bmc_MeshAddOneHotness2( pSat, iTVar, iTVar + T );
-                nAddClauses += Bmc_MeshAddOneHotness2( pSat, iGVar, iGVar + G );
-                nAddClauses += Bmc_MeshAddOneHotness2( pSat, iCVar, iCVar + NCPARS );
-            }
+	    if ( x == 0 || x == X-1 || y == 0 || y == Y-1 ) // boundary
+	    {
+		int iTVar = Bmc_MeshTVar( Me, x, y );
+		int iGVar = Bmc_MeshGVar( Me, x, y );
+		nAddClauses += Bmc_MeshAddOneHotness2( pSat, iTVar, iTVar + T );
+		nAddClauses += Bmc_MeshAddOneHotness2( pSat, iGVar, iGVar + G );
+	    }
+	    else
+	    {
+		int iTVar = Bmc_MeshTVar( Me, x, y );
+		int iGVar = Bmc_MeshGVar( Me, x, y );
+		int iCVar = Bmc_MeshCVar( Me, x, y );
+		nAddClauses += Bmc_MeshAddOneHotness2( pSat, iTVar, iTVar + T );
+		nAddClauses += Bmc_MeshAddOneHotness2( pSat, iGVar, iGVar + G );
+		nAddClauses += Bmc_MeshAddOneHotness2( pSat, iCVar, iCVar + NCPARS );
+	    }
         }
         if ( nAddClauses > 0 )
         {
