@@ -108,7 +108,7 @@ void Bmc_MeshTest2( aigman * p, int X, int Y, int T, int fVerbose )
     pSat->setIncrementalMode();
     pSat->use_elim = 0;
     std::vector<std::vector<int> > Me;
-    int pN[102][2] = {{0}};
+    std::vector<std::vector<int> > pN;
     int I = p->nPis;
     int G = I + p->nGates;
     int i, x, y, t, g, c, status, RetValue, Lit, iVar, nClauses = 0;
@@ -117,13 +117,15 @@ void Bmc_MeshTest2( aigman * p, int X, int Y, int T, int fVerbose )
     for ( x = 0; x < X; x++ )
         Me[x].resize(Y);
     Me[X].resize(2);
-    
-    assert( T <= 100 && G <= 100 );
 
+    pN.resize(G + 1);
+    for ( i = 0; i < G + 1; i++ )
+        pN[i].resize(2);
+    
     // init the graph
     for ( i = 0; i < I; i++ )
         pN[i][0] = pN[i][1] = -1;
-    for(int i = p->nPis + 1; i < p->nObjs; i++)
+    for(int i = I + 1; i < G + 1; i++)
     {
 	pN[i-1][0] = (p->vObjs[i + i] >> 1) - 1;
 	pN[i-1][1] = (p->vObjs[i + i + 1] >> 1) - 1;
