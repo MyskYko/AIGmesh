@@ -28,10 +28,10 @@
 
 #define NCPARS 16
 
-static inline int Bmc_MeshTVar( int Me[102][102], int x, int y ) { return Me[x][y];                                         }
-static inline int Bmc_MeshGVar( int Me[102][102], int x, int y ) { return Me[x][y] + Me[101][100];                          }
-static inline int Bmc_MeshCVar( int Me[102][102], int x, int y ) { return Me[x][y] + Me[101][100] + Me[101][101];           }
-static inline int Bmc_MeshUVar( int Me[102][102], int x, int y ) { return Me[x][y] + Me[101][100] + Me[101][101] + NCPARS;  }
+static inline int Bmc_MeshTVar( std::vector<std::vector<int> > const & Me, int x, int y ) { return Me[x][y];                                         }
+static inline int Bmc_MeshGVar( std::vector<std::vector<int> > const & Me, int x, int y ) { return Me[x][y] + Me.back()[0];                          }
+static inline int Bmc_MeshCVar( std::vector<std::vector<int> > const & Me, int x, int y ) { return Me[x][y] + Me.back()[0] + Me.back()[1];           }
+static inline int Bmc_MeshUVar( std::vector<std::vector<int> > const & Me, int x, int y ) { return Me[x][y] + Me.back()[0] + Me.back()[1] + NCPARS;  }
 
 ////////////////////////////////////////////////////////////////////////
 ///                     FUNCTION DEFINITIONS                         ///
@@ -107,13 +107,18 @@ void Bmc_MeshTest2( aigman * p, int X, int Y, int T, int fVerbose )
     Glucose::SimpSolver * pSat = new Glucose::SimpSolver;
     pSat->setIncrementalMode();
     pSat->use_elim = 0;
-    int Me[102][102] = {{0}};
+    std::vector<std::vector<int> > Me;
     int pN[102][2] = {{0}};
     int I = p->nPis;
     int G = I + p->nGates;
     int i, x, y, t, g, c, status, RetValue, Lit, iVar, nClauses = 0;
 
-    assert( X <= 100 && Y <= 100 && T <= 100 && G <= 100 );
+    Me.resize(X + 1);
+    for ( x = 0; x < X; x++ )
+        Me[x].resize(Y);
+    Me[X].resize(2);
+    
+    assert( T <= 100 && G <= 100 );
 
     // init the graph
     for ( i = 0; i < I; i++ )
@@ -143,8 +148,8 @@ void Bmc_MeshTest2( aigman * p, int X, int Y, int T, int fVerbose )
         Me[x][y] = iVar;
         iVar += T + G + NCPARS + 1;
     }
-    Me[101][100] = T;
-    Me[101][101] = G;
+    Me.back()[0] = T;
+    Me.back()[1] = G;
     if ( fVerbose )
         printf( "SAT variable count is %d (%d time vars + %d graph vars + %d config vars + %d aux vars)\n", iVar, X*Y*T, X*Y*G, X*Y*NCPARS, X*Y );
 
