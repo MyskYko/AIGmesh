@@ -52,9 +52,6 @@ static inline int Bmc_MeshUVar( int Me[102][102], int x, int y ) { return Me[x][
 ***********************************************************************/
 static inline int Bmc_MeshVarValue2( Glucose::SimpSolver * p, int v )
 {
-//    int value = var_value(p, v) != SATOKO_VAR_UNASSING ? var_value(p, v) : satoko_var_polarity(p, v);
-//    return value == SATOKO_LIT_TRUE;
-//  printf("%d\n", p->model[v] == l_True);
     return p->model[v] == l_True;
 }
 
@@ -107,8 +104,6 @@ int Bmc_MeshAddOneHotness2( Glucose::SimpSolver * pSat, int iFirst, int iLast )
 ***********************************************************************/
 void Bmc_MeshTest2( aigman * p, int X, int Y, int T, int fVerbose )
 {
-  //abctime clk = Abc_Clock();
-//    sat_solver * pSat = satoko_create();
     Glucose::SimpSolver * pSat = new Glucose::SimpSolver;
     pSat->setIncrementalMode();
     pSat->use_elim = 0;
@@ -128,13 +123,6 @@ void Bmc_MeshTest2( aigman * p, int X, int Y, int T, int fVerbose )
 	pN[i-1][0] = (p->vObjs[i + i] >> 1) - 1;
 	pN[i-1][1] = (p->vObjs[i + i + 1] >> 1) - 1;
     }
-    /*
-    Gia_ManForEachAnd( p, pObj, i )
-    {
-        pN[i-1][0] = Gia_ObjFaninId0(pObj, i)-1;
-        pN[i-1][1] = Gia_ObjFaninId1(pObj, i)-1;
-    }
-    */
     if ( fVerbose )
     {
         printf( "The graph has %d inputs: ", p->nPis );
@@ -152,7 +140,6 @@ void Bmc_MeshTest2( aigman * p, int X, int Y, int T, int fVerbose )
     for ( y = 0; y < Y; y++ )
     for ( x = 0; x < X; x++ )
     {
-        //printf( "%3d %3d %3d    %s", iVar, iVar+T, iVar+T+G, x == X-1 ? "\n":"" );
         Me[x][y] = iVar;
         iVar += T + G + NCPARS + 1;
     }
@@ -324,8 +311,6 @@ void Bmc_MeshTest2( aigman * p, int X, int Y, int T, int fVerbose )
         if ( RetValue == 0 )
         {
             printf( "Problem has no solution. " );
-            //Abc_PrintTime( 1, "Time", Abc_Clock() - clk );
-//            satoko_destroy( pSat );
             delete pSat;
             return;
         }
@@ -337,15 +322,12 @@ void Bmc_MeshTest2( aigman * p, int X, int Y, int T, int fVerbose )
     while ( 1 )
     {
         int nAddClauses = 0;
-//        status = satoko_solve( pSat );
         status = pSat->solve();
-//        if ( status == SATOKO_UNSAT )
         if ( status == 0 )
         {
             printf( "Problem has no solution. " );
             break;
         }
-//        if ( status == SATOKO_UNDEC )
         assert( status );
         // check if the solution is valid and add constraints
         for ( x = 0; x < X; x++ )
@@ -372,18 +354,8 @@ void Bmc_MeshTest2( aigman * p, int X, int Y, int T, int fVerbose )
             continue;
         }
         printf( "Satisfying solution found. " );
-/*
-//        iVar = satoko_varnum(pSat);
-        iVar = sat_solver_nvars(pSat);
-        for ( i = 0; i < iVar; i++ )
-            if ( Bmc_MeshVarValue2(pSat, i) )
-                printf( "%d ", i );
-        printf( "\n" );
-*/
         break;
     }
-    //Abc_PrintTime( 1, "Time", Abc_Clock() - clk );
-//    if ( status == SATOKO_SAT )
     if ( status )
     {
         // count the number of nodes and buffers
@@ -395,13 +367,11 @@ void Bmc_MeshTest2( aigman * p, int X, int Y, int T, int fVerbose )
             for ( c = 0; c < 4; c++ )
                 if ( Bmc_MeshVarValue2(pSat, iCVar+c) )
                 {
-                    //printf( "Buffer y=%d x=%d  (var = %d; config = %d)\n", y, x, iCVar+c, c );
                     nBuffs++;
                 }
             for ( c = 4; c < NCPARS; c++ )
                 if ( Bmc_MeshVarValue2(pSat, iCVar+c) )
                 {
-                    //printf( "Node   y=%d x=%d  (var = %d; config = %d)\n", y, x, iCVar+c, c );
                     nNodes++;
                 }
         }
@@ -437,7 +407,6 @@ void Bmc_MeshTest2( aigman * p, int X, int Y, int T, int fVerbose )
             printf( "\n" );
         }
     }
-    //satoko_destroy( pSat );
     delete pSat;
 }
 
