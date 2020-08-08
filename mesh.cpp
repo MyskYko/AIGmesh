@@ -22,31 +22,6 @@
 
 #include "aig.hpp"
 
-using sat_solver = Glucose::SimpSolver;
-int Abc_Var2Lit(int i, int c) { return (i << 1) + (int)(c > 0);}
-int sat_solver_addclause( sat_solver * pSat, int * pLits, int * pEnd ) {
-  Glucose::vec<Glucose::Lit> vLits;
-  while(pLits != pEnd) {
-    int var = *pLits >> 1;
-    while(var >= pSat->nVars()) pSat->newVar();
-    vLits.push(Glucose::mkLit(var, *pLits & 1));
-    pLits++;
-  }
-  return pSat->addClause(vLits);
-}
-sat_solver * sat_solver_new() {
-  sat_solver * p = new Glucose::SimpSolver;
-  p->setIncrementalMode();
-  p->use_elim = 0;
-  return p;
-}
-void sat_solver_delete( sat_solver * pSat ) {
-  delete pSat;
-}
-int sat_solver_solve( sat_solver * pSat ) {
-  return pSat->solve();
-}
-
 ////////////////////////////////////////////////////////////////////////
 ///                        DECLARATIONS                              ///
 ////////////////////////////////////////////////////////////////////////
@@ -75,7 +50,7 @@ static inline int Bmc_MeshUVar( int Me[102][102], int x, int y ) { return Me[x][
   SeeAlso     []
 
 ***********************************************************************/
-static inline int Bmc_MeshVarValue2( sat_solver * p, int v )
+static inline int Bmc_MeshVarValue2( Glucose::SimpSolver * p, int v )
 {
 //    int value = var_value(p, v) != SATOKO_VAR_UNASSING ? var_value(p, v) : satoko_var_polarity(p, v);
 //    return value == SATOKO_LIT_TRUE;
@@ -94,7 +69,7 @@ static inline int Bmc_MeshVarValue2( sat_solver * p, int v )
   SeeAlso     []
 
 ***********************************************************************/
-int Bmc_MeshAddOneHotness2( sat_solver * pSat, int iFirst, int iLast )
+int Bmc_MeshAddOneHotness2( Glucose::SimpSolver * pSat, int iFirst, int iLast )
 {
     int i, j, v, pVars[100], nVars  = 0, nCount = 0;
     assert( iFirst < iLast && iFirst + 110 > iLast );
@@ -109,10 +84,11 @@ int Bmc_MeshAddOneHotness2( sat_solver * pSat, int iFirst, int iLast )
     for ( i = 0;   i < nVars; i++ )
     for ( j = i+1; j < nVars; j++ )
     {
-        int pLits[2], RetValue;
-        pLits[0] = Abc_Var2Lit( pVars[i], 1 );
-        pLits[1] = Abc_Var2Lit( pVars[j], 1 );
-        RetValue = sat_solver_addclause( pSat, pLits, pLits+2 );  assert( RetValue );
+        Glucose::vec<Glucose::Lit> pLits;
+	int RetValue;
+        pLits.push(Glucose::mkLit( pVars[i], 1 ));
+        pLits.push(Glucose::mkLit( pVars[j], 1 ));
+        RetValue = pSat->addClause(pLits);  assert( RetValue );
         nCount++;
     }
     return nCount;
@@ -133,7 +109,9 @@ void Bmc_MeshTest2( aigman * p, int X, int Y, int T, int fVerbose )
 {
   //abctime clk = Abc_Clock();
 //    sat_solver * pSat = satoko_create();
-    sat_solver * pSat = sat_solver_new();
+    Glucose::SimpSolver * pSat = new Glucose::SimpSolver;
+    pSat->setIncrementalMode();
+    pSat->use_elim = 0;
     int Me[102][102] = {{0}};
     int pN[102][2] = {{0}};
     int I = p->nPis;
@@ -183,6 +161,8 @@ void Bmc_MeshTest2( aigman * p, int X, int Y, int T, int fVerbose )
     if ( fVerbose )
         printf( "SAT variable count is %d (%d time vars + %d graph vars + %d config vars + %d aux vars)\n", iVar, X*Y*T, X*Y*G, X*Y*NCPARS, X*Y );
 
+    while(iVar >= pSat->nVars()) pSat->newVar();
+    
     // add constraints
 
     // time 0 and primary inputs only on the boundary
@@ -197,26 +177,24 @@ void Bmc_MeshTest2( aigman * p, int X, int Y, int T, int fVerbose )
             // time 0 is required
             for ( t = 0; t < T; t++ )
             {
-                Lit = Abc_Var2Lit( iTVar+t, (int)(t > 0) );
-                RetValue = sat_solver_addclause( pSat, &Lit, &Lit+1 );  assert( RetValue );
+                RetValue = pSat->addClause( Glucose::mkLit( iTVar+t, (int)(t > 0) ) );  assert( RetValue );
             }
             // internal nodes are not allowed
             for ( g = I; g < G; g++ )
             {
-                Lit = Abc_Var2Lit( iGVar+g, 1 );
-                RetValue = sat_solver_addclause( pSat, &Lit, &Lit+1 );  assert( RetValue );
+                RetValue = pSat->addClause( Glucose::mkLit( iGVar+g, 1 ) );  assert( RetValue );
             }
         }
         else // not a boundary
         {
-            Lit = Abc_Var2Lit( iTVar, 1 );  // cannot have time 0
-            RetValue = sat_solver_addclause( pSat, &Lit, &Lit+1 );  assert( RetValue );
+	    // cannot have time 0
+            RetValue = pSat->addClause( Glucose::mkLit( iTVar, 1 ) );  assert( RetValue );
         }
     }
     for ( x = 1; x < X-1; x++ )
     for ( y = 1; y < Y-1; y++ )
     {
-        int pLits[100], nLits;
+        Glucose::vec<Glucose::Lit> pLits;
 
         int iTVar = Bmc_MeshTVar( Me, x, y );
         int iGVar = Bmc_MeshGVar( Me, x, y );
@@ -242,24 +220,27 @@ void Bmc_MeshTest2( aigman * p, int X, int Y, int T, int fVerbose )
         // condition when cell is used
         for ( g = 0; g < G; g++ )
         {
-            pLits[0] = Abc_Var2Lit( iGVar+g, 1 );
-            pLits[1] = Abc_Var2Lit( iUVar, 0 );
-            RetValue = sat_solver_addclause( pSat, pLits, pLits+2 );  assert( RetValue );
+	    pLits.clear();
+            pLits.push(Glucose::mkLit( iGVar+g, 1 ));
+            pLits.push(Glucose::mkLit( iUVar, 0 ));
+            RetValue = pSat->addClause( pLits );  assert( RetValue );
             nClauses++;
         }
 
         // at least one time is used
-        pLits[0] = Abc_Var2Lit( iUVar, 1 );
+	pLits.clear();
+        pLits.push(Glucose::mkLit( iUVar, 1 ));
         for ( t = 1; t < T; t++ )
-            pLits[t] = Abc_Var2Lit( iTVar+t, 0 );
-        RetValue = sat_solver_addclause( pSat, pLits, pLits+T );  assert( RetValue );
+	    pLits.push(Glucose::mkLit( iTVar+t, 0 ));
+        RetValue = pSat->addClause( pLits );  assert( RetValue );
         nClauses++;
 
         // at least one config is used
-        pLits[0] = Abc_Var2Lit( iUVar, 1 );
+	pLits.clear();
+        pLits.push(Glucose::mkLit( iUVar, 1 ));
         for ( c = 0; c < NCPARS; c++ )
-            pLits[c+1] = Abc_Var2Lit( iCVar+c, 0 );
-        RetValue = sat_solver_addclause( pSat, pLits, pLits+NCPARS+1 );  assert( RetValue );
+	  pLits.push(Glucose::mkLit( iCVar+c, 0 ));
+        RetValue = pSat->addClause( pLits );  assert( RetValue );
         nClauses++;
 
         // constraints for each time
@@ -270,28 +251,29 @@ void Bmc_MeshTest2( aigman * p, int X, int Y, int T, int fVerbose )
             for ( g = 0; g < G; g++ )
             for ( c = 0; c < 4; c++ )
             {
-                nLits = 0;
-                pLits[ nLits++ ] = Abc_Var2Lit( iTVar+t, 1 );
-                pLits[ nLits++ ] = Abc_Var2Lit( iGVar+g, 1 );
-                pLits[ nLits++ ] = Abc_Var2Lit( iCVar+c, 1 );
-                pLits[ nLits++ ] = Abc_Var2Lit( iTVars[c]+t-1, 0 );
-                RetValue = sat_solver_addclause( pSat, pLits, pLits+nLits );  assert( RetValue );
+	        pLits.clear();
+                pLits.push(Glucose::mkLit( iTVar+t, 1 ));
+                pLits.push(Glucose::mkLit( iGVar+g, 1 ));
+                pLits.push(Glucose::mkLit( iCVar+c, 1 ));
+                pLits.push(Glucose::mkLit( iTVars[c]+t-1, 0 ));
+                RetValue = pSat->addClause( pLits );  assert( RetValue );
 
-                nLits = 0;
-                pLits[ nLits++ ] = Abc_Var2Lit( iTVar+t, 1 );
-                pLits[ nLits++ ] = Abc_Var2Lit( iGVar+g, 1 );
-                pLits[ nLits++ ] = Abc_Var2Lit( iCVar+c, 1 );
-                pLits[ nLits++ ] = Abc_Var2Lit( iGVars[c]+g, 0 );
-                RetValue = sat_solver_addclause( pSat, pLits, pLits+nLits );  assert( RetValue );
+		pLits.clear();
+                pLits.push(Glucose::mkLit( iTVar+t, 1 ));
+                pLits.push(Glucose::mkLit( iGVar+g, 1 ));
+                pLits.push(Glucose::mkLit( iCVar+c, 1 ));
+                pLits.push(Glucose::mkLit( iGVars[c]+g, 0 ));
+                RetValue = pSat->addClause( pLits );  assert( RetValue );
 
                 nClauses += 2;
             }
             for ( g = 0; g < I; g++ )
             for ( c = 4; c < NCPARS; c++ )
             {
-                pLits[0] = Abc_Var2Lit( iGVar+g, 1 );
-                pLits[1] = Abc_Var2Lit( iCVar+c, 1 );
-                RetValue = sat_solver_addclause( pSat, pLits, pLits+2 );  assert( RetValue );
+	        pLits.clear();
+	        pLits.push(Glucose::mkLit( iGVar+g, 1 ));
+                pLits.push(Glucose::mkLit( iCVar+c, 1 ));
+                RetValue = pSat->addClause( pLits );  assert( RetValue );
                 nClauses++;
             }
             // node
@@ -301,34 +283,34 @@ void Bmc_MeshTest2( aigman * p, int X, int Y, int T, int fVerbose )
                 assert( pN[g][0] >= 0 && pN[g][1] >= 0 );
                 assert( pN[g][0] <  g && pN[g][1] <  g );
 
-                nLits = 0;
-                pLits[ nLits++ ] = Abc_Var2Lit( iTVar+t, 1 );
-                pLits[ nLits++ ] = Abc_Var2Lit( iGVar+g, 1 );
-                pLits[ nLits++ ] = Abc_Var2Lit( iCVar+c+4, 1 );
-                pLits[ nLits++ ] = Abc_Var2Lit( iTVars[Conf[c][0]]+t-1, 0 );
-                RetValue = sat_solver_addclause( pSat, pLits, pLits+nLits );  assert( RetValue );
+                pLits.clear();
+                pLits.push(Glucose::mkLit( iTVar+t, 1 ));
+                pLits.push(Glucose::mkLit( iGVar+g, 1 ));
+                pLits.push(Glucose::mkLit( iCVar+c+4, 1 ));
+                pLits.push(Glucose::mkLit( iTVars[Conf[c][0]]+t-1, 0 ));
+                RetValue = pSat->addClause( pLits );  assert( RetValue );
 
-                nLits = 0;
-                pLits[ nLits++ ] = Abc_Var2Lit( iTVar+t, 1 );
-                pLits[ nLits++ ] = Abc_Var2Lit( iGVar+g, 1 );
-                pLits[ nLits++ ] = Abc_Var2Lit( iCVar+c+4, 1 );
-                pLits[ nLits++ ] = Abc_Var2Lit( iTVars[Conf[c][1]]+t-1, 0 );
-                RetValue = sat_solver_addclause( pSat, pLits, pLits+nLits );  assert( RetValue );
+		pLits.clear();
+                pLits.push(Glucose::mkLit( iTVar+t, 1 ));
+                pLits.push(Glucose::mkLit( iGVar+g, 1 ));
+                pLits.push(Glucose::mkLit( iCVar+c+4, 1 ));
+                pLits.push(Glucose::mkLit( iTVars[Conf[c][1]]+t-1, 0 ));
+                RetValue = pSat->addClause( pLits );  assert( RetValue );
 
 
-                nLits = 0;
-                pLits[ nLits++ ] = Abc_Var2Lit( iTVar+t, 1 );
-                pLits[ nLits++ ] = Abc_Var2Lit( iGVar+g, 1 );
-                pLits[ nLits++ ] = Abc_Var2Lit( iCVar+c+4, 1 );
-                pLits[ nLits++ ] = Abc_Var2Lit( iGVars[Conf[c][0]]+pN[g][0], 0 );
-                RetValue = sat_solver_addclause( pSat, pLits, pLits+nLits );  assert( RetValue );
+                pLits.clear();
+                pLits.push(Glucose::mkLit( iTVar+t, 1 ));
+                pLits.push(Glucose::mkLit( iGVar+g, 1 ));
+                pLits.push(Glucose::mkLit( iCVar+c+4, 1 ));
+                pLits.push(Glucose::mkLit( iGVars[Conf[c][0]]+pN[g][0], 0 ));
+                RetValue = pSat->addClause( pLits );  assert( RetValue );
 
-                nLits = 0;
-                pLits[ nLits++ ] = Abc_Var2Lit( iTVar+t, 1 );
-                pLits[ nLits++ ] = Abc_Var2Lit( iGVar+g, 1 );
-                pLits[ nLits++ ] = Abc_Var2Lit( iCVar+c+4, 1 );
-                pLits[ nLits++ ] = Abc_Var2Lit( iGVars[Conf[c][1]]+pN[g][1], 0 );
-                RetValue = sat_solver_addclause( pSat, pLits, pLits+nLits );  assert( RetValue );
+		pLits.clear();
+                pLits.push(Glucose::mkLit( iTVar+t, 1 ));
+                pLits.push(Glucose::mkLit( iGVar+g, 1 ));
+                pLits.push(Glucose::mkLit( iCVar+c+4, 1 ));
+                pLits.push(Glucose::mkLit( iGVars[Conf[c][1]]+pN[g][1], 0 ));
+                RetValue = pSat->addClause( pLits );  assert( RetValue );
 
                 nClauses += 4;
             }
@@ -338,14 +320,13 @@ void Bmc_MeshTest2( aigman * p, int X, int Y, int T, int fVerbose )
     // final condition
     {
         int iGVar = Bmc_MeshGVar( Me, 1, 1 ) + G-1;
-        Lit = Abc_Var2Lit( iGVar, 0 );
-        RetValue = sat_solver_addclause( pSat, &Lit, &Lit+1 );  
+        RetValue = pSat->addClause( Glucose::mkLit( iGVar, 0 ) );
         if ( RetValue == 0 )
         {
             printf( "Problem has no solution. " );
             //Abc_PrintTime( 1, "Time", Abc_Clock() - clk );
 //            satoko_destroy( pSat );
-            sat_solver_delete( pSat );
+            delete pSat;
             return;
         }
     }
@@ -357,7 +338,7 @@ void Bmc_MeshTest2( aigman * p, int X, int Y, int T, int fVerbose )
     {
         int nAddClauses = 0;
 //        status = satoko_solve( pSat );
-        status = sat_solver_solve( pSat );
+        status = pSat->solve();
 //        if ( status == SATOKO_UNSAT )
         if ( status == 0 )
         {
@@ -457,7 +438,7 @@ void Bmc_MeshTest2( aigman * p, int X, int Y, int T, int fVerbose )
         }
     }
     //satoko_destroy( pSat );
-    sat_solver_delete( pSat );
+    delete pSat;
 }
 
 
