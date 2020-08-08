@@ -17,7 +17,9 @@
   Revision    [$Id: bmcMesh.c,v 1.00 2005/06/20 00:00:00 alanmi Exp $]
 
 ***********************************************************************/
+#include <iostream>
 #include <algorithm>
+#include <chrono>
 
 #include <simp/SimpSolver.h>
 
@@ -67,20 +69,29 @@ static inline int Bmc_MeshVarValue2( Glucose::SimpSolver * p, int v )
   SeeAlso     []
 
 ***********************************************************************/
+int integer_log2(int n) { // wrap up
+  int t = 1;
+  int count = 0;
+  while(n > t) {
+    t = t << 1;
+    count++;
+  }
+  return count;
+}
 int Bmc_MeshAddOneHotness2( Glucose::SimpSolver * pSat, int iFirst, int iLast )
 {
-    int i, j, v, pVars[100], nVars  = 0, nCount = 0;
+    int i, j, v, nVars, nCount = 0;
+    std::vector<int> pVars;
     assert( iFirst < iLast && iFirst + 110 > iLast );
     for ( v = iFirst; v < iLast; v++ )
         if ( Bmc_MeshVarValue2(pSat, v) ) // v = 1
-        {
-            assert( nVars < 100 );
-            pVars[ nVars++ ] = v;
-        }
-    if ( nVars <= 1 )
+            pVars.push_back(v);
+    if ( pVars.size() <= 1 )
         return 0;
-    for ( i = 0;   i < nVars; i++ )
-    for ( j = i+1; j < nVars; j++ )
+    /*
+    // naive
+    for ( i = 0;   i < pVars.size(); i++ )
+    for ( j = i+1; j < pVars.size(); j++ )
     {
         Glucose::vec<Glucose::Lit> pLits;
 	int RetValue;
@@ -89,6 +100,46 @@ int Bmc_MeshAddOneHotness2( Glucose::SimpSolver * pSat, int iFirst, int iLast )
         RetValue = pSat->addClause(pLits);  assert( RetValue );
         nCount++;
     }
+    return nCount;
+
+    // commander
+    nVars = pVars.size();
+    while ( nVars > 1 )
+    {
+	nVars = 0;
+	for ( i = 0; i < pVars.size(); i += 2 )
+	{
+	    if( i == pVars.size() - 1 )
+	    {
+	      pVars[nVars++] = pVars[i];
+	      break;
+	    }
+	    int c = pSat->newVar();
+	    pSat->addClause(Glucose::mkLit( pVars[i], 1 ), Glucose::mkLit( pVars[i + 1], 1 ));
+	    pSat->addClause(Glucose::mkLit( pVars[i], 1 ), Glucose::mkLit( c, 0 ));
+	    pSat->addClause(Glucose::mkLit( pVars[i + 1], 1 ), Glucose::mkLit( c, 0 ));
+	    pVars[nVars++] = c;
+	    nCount += 3;
+	}
+	pVars.resize(nVars);
+    }
+    return nCount;
+    */
+    // binary
+    nVars = integer_log2(pVars.size());
+    for( j = 0; j < nVars; j++)
+      {
+	int c = pSat->newVar();
+	int b = 1 << j;
+	for ( i = 0; i < pVars.size(); i++ )
+	  {
+	    if(i & b)
+		pSat->addClause(Glucose::mkLit( pVars[i], 1 ), Glucose::mkLit( c, 0 ));
+	    else
+		pSat->addClause(Glucose::mkLit( pVars[i], 1 ), Glucose::mkLit( c, 1 ));
+	    nCount++;
+	  }
+      }
     return nCount;
 }
 
@@ -440,7 +491,10 @@ void Bmc_MeshTest2( aigman * p, int X, int Y, int T, int fVerbose )
     while ( 1 )
     {
         int nAddClauses = 0;
+	auto start = std::chrono::system_clock::now();
         status = pSat->solve();
+	auto end = std::chrono::system_clock::now();
+	std::cout << "time : " << std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count() / 1000. << " s" << std::endl;
         if ( status == 0 )
         {
             printf( "Problem has no solution. " );
