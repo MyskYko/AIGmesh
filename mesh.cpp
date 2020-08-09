@@ -182,10 +182,10 @@ void Bmc_MeshTest( aigman * p, int X, int Y, int T, int fVerbose, bool inputbuf 
     {
         printf( "The graph has %d inputs: ", p->nPis );
         for ( i = 0; i < I; i++ )
-            printf( "%c ", 'a' + i );
+            printf( "%c ", 'A' + i );
         printf( "  and %d nodes: ", p->nGates );
         for ( i = I; i < G; i++ )
-            printf( "%c=%c%c ", 'a' + i, 'a' + pN[i][0] , 'a' + pN[i][1] );
+            printf( "%c=%c%c ", 'A' + i, 'A' + pN[i][0] , 'A' + pN[i][1] );
         printf( "\n" );
     }
 
@@ -458,7 +458,7 @@ void Bmc_MeshTest( aigman * p, int X, int Y, int T, int fVerbose, bool inputbuf 
                 for ( g = 0; g < G; g++ )
                     if ( Bmc_MeshVarValue2(pSat, iTVar+t) && Bmc_MeshVarValue2(pSat, iGVar+g) )
                     {
-                        printf( " %c%-2d ", 'a' + g, t );
+                        printf( " %c%-2d ", 'A' + g, t );
                         fFound = 1;
                     }
                 if ( fFound )
@@ -517,10 +517,10 @@ void Bmc_MeshTest2( aigman * p, int X, int Y, int T, int fVerbose )
     {
         printf( "The graph has %d inputs: ", p->nPis );
         for ( i = 0; i < I; i++ )
-            printf( "%c ", 'a' + i );
+            printf( "%c ", 'A' + i );
         printf( "  and %d nodes: ", p->nGates );
         for ( i = I; i < G; i++ )
-            printf( "%c=%c%c ", 'a' + i, 'a' + pN[i][0] , 'a' + pN[i][1] );
+            printf( "%c=%c%c ", 'A' + i, 'A' + pN[i][0] , 'A' + pN[i][1] );
         printf( "\n" );
     }
 
@@ -899,7 +899,7 @@ void Bmc_MeshTest2( aigman * p, int X, int Y, int T, int fVerbose )
                 for ( g = 0; g < G; g++ )
                     if ( Bmc_MeshVarValue2(pSat, iTVar+t) && Bmc_MeshVarValue2(pSat, iGVar+g) )
                     {
-                        printf( " %c%-2d ", 'a' + g, t );
+                        printf( " %c%-2d ", 'A' + g, t );
                         fFound = 1;
                     }
                 if ( fFound )
