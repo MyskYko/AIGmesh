@@ -169,7 +169,7 @@ void Bmc_MeshTest( aigman * p, int X, int Y, int T, int fVerbose, bool inputbuf 
     Me[X].resize(2);
 
     pN.resize(G);
-    for ( i = I; i < G + 1; i++ )
+    for ( i = I; i < G; i++ )
         pN[i].resize(2);
     
     // init the graph
