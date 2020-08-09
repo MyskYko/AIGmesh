@@ -83,8 +83,7 @@ int bimander(Glucose::SimpSolver * pSat, std::vector<int> const &vVars, int nbim
   std::vector<int> vVars2;
   int m = vVars.size() / nbim + vVars.size() % nbim;
   int nb = integer_log2(m);
-  int c = pSat->newVar();
-  std::cout << c << std::endl;
+  int c = pSat->nVars();
   for(int k = 0; k < nb; k++) {
     pSat->newVar();
   }
@@ -114,7 +113,6 @@ int bimander(Glucose::SimpSolver * pSat, std::vector<int> const &vVars, int nbim
 	  int RetValue;
 	  pLits.push(Glucose::mkLit( vVars[i*nbim + j], 1 ));
 	  pLits.push(Glucose::mkLit( c + k, 0 ));
-	  std::cout << c + k << std::endl;
 	  RetValue = pSat->addClause(pLits);  assert( RetValue );
 	  nCount++;
 	}
@@ -125,13 +123,13 @@ int bimander(Glucose::SimpSolver * pSat, std::vector<int> const &vVars, int nbim
 	  int RetValue;
 	  pLits.push(Glucose::mkLit( vVars[i*nbim + j], 1 ));
 	  pLits.push(Glucose::mkLit( c + k, 1 ));
-	  std::cout << c + k << std::endl;
 	  RetValue = pSat->addClause(pLits);  assert( RetValue );
 	  nCount++;
 	}
       }
     }
   }
+  return nCount;
 }
 int Bmc_MeshAddOneHotness2( Glucose::SimpSolver * pSat, int iFirst, int iLast )
 {
