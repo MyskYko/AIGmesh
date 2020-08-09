@@ -135,16 +135,12 @@ int Bmc_MeshAddOneHotness2( Glucose::SimpSolver * pSat, int iFirst, int iLast )
 {
     int i, j, v, nVars, nCount = 0;
     std::vector<int> pVars;
-    assert( iFirst < iLast && iFirst + 110 > iLast );
+    assert( iFirst < iLast );
     for ( v = iFirst; v < iLast; v++ )
         if ( Bmc_MeshVarValue2(pSat, v) ) // v = 1
             pVars.push_back(v);
     if ( pVars.size() <= 1 )
         return 0;
-    
-    nCount = bimander(pSat, pVars, 2);
-    return nCount;
-    
     // naive
     for ( i = 0;   i < pVars.size(); i++ )
     for ( j = i+1; j < pVars.size(); j++ )
@@ -199,6 +195,24 @@ int Bmc_MeshAddOneHotness2( Glucose::SimpSolver * pSat, int iFirst, int iLast )
       }
     return nCount;
     */
+    /*
+    //bimander
+    nCount = bimander(pSat, pVars, 2);
+    return nCount;
+    */
+}
+int Bmc_MeshAddOneHotness( Glucose::SimpSolver * pSat, int iFirst, int iLast )
+{
+    int v, nCount = 0;
+    std::vector<int> pVars;
+    assert( iFirst < iLast );
+    for ( v = iFirst; v < iLast; v++ )
+        pVars.push_back(v);
+    if ( pVars.size() <= 1 )
+        return 0;
+    //bimander
+    nCount = bimander(pSat, pVars, 2);
+    return nCount;
 }
 
 /**Function*************************************************************
@@ -208,7 +222,7 @@ int Bmc_MeshAddOneHotness2( Glucose::SimpSolver * pSat, int iFirst, int iLast )
   SideEffects []
   SeeAlso     []
 ***********************************************************************/
-void Bmc_MeshTest( aigman * p, int X, int Y, int T, int fVerbose, bool inputbuf )
+void Bmc_MeshTest( aigman * p, int X, int Y, int T, int fVerbose, bool inputbuf, bool iteAMO )
 {
     Glucose::SimpSolver * pSat = new Glucose::SimpSolver;
     pSat->setIncrementalMode();
@@ -427,6 +441,33 @@ void Bmc_MeshTest( aigman * p, int X, int Y, int T, int fVerbose, bool inputbuf 
             printf( "Problem has no solution. " );
             delete pSat;
             return;
+        }
+    }
+
+    if ( !iteAMO )
+    {
+        for ( x = 0; x < X; x++ )
+        for ( y = 0; y < Y; y++ )
+        {
+            if ( x == 0 || x == X-1 || y == 0 || y == Y-1 ) // boundary
+            {
+                int iGVar = Bmc_MeshGVar( Me, x, y );
+                nClauses += Bmc_MeshAddOneHotness( pSat, iGVar, iGVar + G );
+		if ( inputbuf )
+		{
+		    int iTVar = Bmc_MeshTVar( Me, x, y );
+		    nClauses += Bmc_MeshAddOneHotness( pSat, iTVar, iTVar + T );
+		}
+            }
+            else
+            {
+                int iTVar = Bmc_MeshTVar( Me, x, y );
+                int iGVar = Bmc_MeshGVar( Me, x, y );
+                int iCVar = Bmc_MeshCVar( Me, x, y );
+                nClauses += Bmc_MeshAddOneHotness( pSat, iTVar, iTVar + T );
+                nClauses += Bmc_MeshAddOneHotness( pSat, iGVar, iGVar + G );
+                nClauses += Bmc_MeshAddOneHotness( pSat, iCVar, iCVar + NCPARS );
+            }
         }
     }
 
