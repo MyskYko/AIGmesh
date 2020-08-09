@@ -78,6 +78,61 @@ int integer_log2(int n) { // wrap up
   }
   return count;
 }
+int bimander(Glucose::SimpSolver * pSat, std::vector<int> const &vVars, int nbim) {
+  int nCount = 0;
+  std::vector<int> vVars2;
+  int m = vVars.size() / nbim + vVars.size() % nbim;
+  int nb = integer_log2(m);
+  int c = pSat->newVar();
+  std::cout << c << std::endl;
+  for(int k = 0; k < nb; k++) {
+    pSat->newVar();
+  }
+  for(int i = 0; i < m; i++) {
+    vVars2.clear();
+    for(int j = 0; j < nbim && i*nbim + j < (int)vVars.size(); j++) {
+      vVars2.push_back(vVars[i*nbim + j]);
+    }
+    if(vVars2.size() > 1) {
+      // naive
+      for ( int p = 0; p < vVars2.size(); p++ ) {
+	for ( int q = p+1; q < vVars2.size(); q++ ) {
+	  Glucose::vec<Glucose::Lit> pLits;
+	  int RetValue;
+	  pLits.push(Glucose::mkLit( vVars2[p], 1 ));
+	  pLits.push(Glucose::mkLit( vVars2[q], 1 ));
+	  RetValue = pSat->addClause(pLits);  assert( RetValue );
+	  nCount++;
+	}
+      }
+    }
+    for(int k = 0; k < nb; k++) {
+      int b = 1 << k;
+      if(i & b) {
+	for(int j = 0; j < nbim && i*nbim + j < (int)vVars.size(); j++) {
+	  Glucose::vec<Glucose::Lit> pLits;
+	  int RetValue;
+	  pLits.push(Glucose::mkLit( vVars[i*nbim + j], 1 ));
+	  pLits.push(Glucose::mkLit( c + k, 0 ));
+	  std::cout << c + k << std::endl;
+	  RetValue = pSat->addClause(pLits);  assert( RetValue );
+	  nCount++;
+	}
+      }
+      else {
+	for(int j = 0; j < nbim && i*nbim + j < (int)vVars.size(); j++) {
+	  Glucose::vec<Glucose::Lit> pLits;
+	  int RetValue;
+	  pLits.push(Glucose::mkLit( vVars[i*nbim + j], 1 ));
+	  pLits.push(Glucose::mkLit( c + k, 1 ));
+	  std::cout << c + k << std::endl;
+	  RetValue = pSat->addClause(pLits);  assert( RetValue );
+	  nCount++;
+	}
+      }
+    }
+  }
+}
 int Bmc_MeshAddOneHotness2( Glucose::SimpSolver * pSat, int iFirst, int iLast )
 {
     int i, j, v, nVars, nCount = 0;
@@ -88,7 +143,10 @@ int Bmc_MeshAddOneHotness2( Glucose::SimpSolver * pSat, int iFirst, int iLast )
             pVars.push_back(v);
     if ( pVars.size() <= 1 )
         return 0;
-    /*
+    
+    nCount = bimander(pSat, pVars, 2);
+    return nCount;
+    
     // naive
     for ( i = 0;   i < pVars.size(); i++ )
     for ( j = i+1; j < pVars.size(); j++ )
@@ -101,7 +159,7 @@ int Bmc_MeshAddOneHotness2( Glucose::SimpSolver * pSat, int iFirst, int iLast )
         nCount++;
     }
     return nCount;
-
+    /*
     // commander
     nVars = pVars.size();
     while ( nVars > 1 )
@@ -125,6 +183,7 @@ int Bmc_MeshAddOneHotness2( Glucose::SimpSolver * pSat, int iFirst, int iLast )
     }
     return nCount;
     */
+    /*
     // binary
     nVars = integer_log2(pVars.size());
     for( j = 0; j < nVars; j++)
@@ -141,6 +200,7 @@ int Bmc_MeshAddOneHotness2( Glucose::SimpSolver * pSat, int iFirst, int iLast )
 	  }
       }
     return nCount;
+    */
 }
 
 /**Function*************************************************************
