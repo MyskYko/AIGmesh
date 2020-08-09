@@ -161,6 +161,8 @@ void Bmc_MeshTest( aigman * p, int X, int Y, int T, int fVerbose, bool inputbuf 
     int G = I + p->nGates;
     int i, x, y, t, g, c, status, RetValue, Lit, iVar, nClauses = 0;
 
+    assert(p->nPos == 1);
+
     Me.resize(X + 1);
     for ( x = 0; x < X; x++ )
         Me[x].resize(Y);
@@ -376,7 +378,10 @@ void Bmc_MeshTest( aigman * p, int X, int Y, int T, int fVerbose, bool inputbuf 
     while ( 1 )
     {
         int nAddClauses = 0;
+	auto start = std::chrono::system_clock::now();
         status = pSat->solve();
+	auto end = std::chrono::system_clock::now();
+	std::cout << "time : " << std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count() / 1000. << " s" << std::endl;
         if ( status == 0 )
         {
             printf( "Problem has no solution. " );
