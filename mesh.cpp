@@ -150,7 +150,7 @@ int Bmc_MeshAddOneHotness2( Glucose::SimpSolver * pSat, int iFirst, int iLast )
   SideEffects []
   SeeAlso     []
 ***********************************************************************/
-void Bmc_MeshTest( aigman * p, int X, int Y, int T, int fVerbose )
+void Bmc_MeshTest( aigman * p, int X, int Y, int T, int fVerbose, bool inputbuf )
 {
     Glucose::SimpSolver * pSat = new Glucose::SimpSolver;
     pSat->setIncrementalMode();
@@ -215,6 +215,7 @@ void Bmc_MeshTest( aigman * p, int X, int Y, int T, int fVerbose )
         if ( x == 0 || x == X-1 || y == 0 || y == Y-1 ) // boundary
         {
             // time 0 is required
+	    if ( !inputbuf )
             for ( t = 0; t < T; t++ )
             {
                 RetValue = pSat->addClause( Glucose::mkLit( iTVar+t, (int)(t > 0) ) );  assert( RetValue );
@@ -390,6 +391,11 @@ void Bmc_MeshTest( aigman * p, int X, int Y, int T, int fVerbose )
             {
                 int iGVar = Bmc_MeshGVar( Me, x, y );
                 nAddClauses += Bmc_MeshAddOneHotness2( pSat, iGVar, iGVar + G );
+		if ( inputbuf )
+		{
+		    int iTVar = Bmc_MeshTVar( Me, x, y );
+		    nAddClauses += Bmc_MeshAddOneHotness2( pSat, iTVar, iTVar + T );
+		}
             }
             else
             {
