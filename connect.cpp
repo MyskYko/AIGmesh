@@ -95,8 +95,8 @@ void interconnectmesh(aigman * p, int N, int T, int W, int fVerbose) {
   extern int bimander(Glucose::SimpSolver * pSat, std::vector<int> const &vVars, int nbim);
   
   Glucose::SimpSolver * pSat = new Glucose::SimpSolver;
-  pSat->setIncrementalMode();
-  pSat->use_elim = 0;
+  //pSat->setIncrementalMode();
+  //pSat->use_elim = 0;
 
   Glucose::vec<Glucose::Lit> pLits;
     
@@ -119,7 +119,6 @@ void interconnectmesh(aigman * p, int N, int T, int W, int fVerbose) {
   int H = V + DATA * N * N * T;
   int nVars = H + DATA * N * N * T;
   while(nVars >= pSat->nVars()) pSat->newVar();
-  printf("nvar %d\n", nVars);
 
   int nClause = 0;
 
@@ -354,7 +353,6 @@ void interconnectmesh(aigman * p, int N, int T, int W, int fVerbose) {
     }
   }
 
-  /*
   // AM(2W) for Switch
   if(W > 0) {
     for(int y = 0; y < N; y++) {
@@ -393,9 +391,9 @@ void interconnectmesh(aigman * p, int N, int T, int W, int fVerbose) {
       }
     }
   }
-  */
 
   // solve
+  printf("nVars %d, nClauses %d\n", pSat->nVars(), pSat->nClauses());
   auto start = std::chrono::system_clock::now();
   int status = pSat->solve();
   auto end = std::chrono::system_clock::now();
@@ -404,55 +402,6 @@ void interconnectmesh(aigman * p, int N, int T, int W, int fVerbose) {
     printf("UNSAT\n");
   } else {
     printf("SAT\n");
-
-    // AM(2W) for Switch
-    if(W > 0) {
-      for(int y = 0; y < N; y++) {
-	for(int x = 0; x < N; x++) {
-	  std::vector<int> vVars;
-	  for(int i = 0; i < DATA; i++) {
-	    vVars.push_back(i + x * DATA + y * DATA * N + (T - 1) * DATA * N * N + S);
-	  }
-	  seqaddertree(pSat, vVars, W + W);
-	}
-      }
-    }
-    // AM(W) for Vertical
-    if(W > 0) {
-      for(int y = 0; y < N; y++) {
-	for(int x = 0; x < N; x++) {
-	  std::vector<int> vVars;
-	  for(int i = 0; i < DATA; i++) {
-	    vVars.push_back(i + x * DATA + y * DATA * N + (T - 1) * DATA * N * N + V);
-	  }
-	  seqaddertree(pSat, vVars, W);
-	}
-      }
-    }
-    // AM(W) for Horizontal
-    if(W > 0) {
-      for(int y = 0; y < N; y++) {
-	for(int x = 0; x < N; x++) {
-	  std::vector<int> vVars;
-	  for(int i = 0; i < DATA; i++) {
-	    vVars.push_back(i + x * DATA + y * DATA * N + (T - 1) * DATA * N * N + H);
-	  }
-	  seqaddertree(pSat, vVars, W);
-	}
-      }
-    }
-    auto start = std::chrono::system_clock::now();
-    int status = pSat->solve();
-    auto end = std::chrono::system_clock::now();
-    std::cout << "time : " << std::chrono::duration_cast<std::chrono::milliseconds>(end-start).count() / 1000. << " s" << std::endl;
-    if(status == 0) {
-      printf("UNSAT\n");
-      delete pSat;
-      return;
-    } else {
-      printf("SAT\n");
-    }
-
 
     /*
     for(int z = 0; z < 4 * N; z++) {
@@ -489,7 +438,7 @@ void interconnectmesh(aigman * p, int N, int T, int W, int fVerbose) {
     int fcolor = 1;
     int ww = 3; // log10(DATA-1) + 2
     int bw = ww + ww + 2;
-    int bh = W + 2;
+    int bh = W > 0? W + 2: 5;
     std::vector<std::string> m(1000); // top-side down map
     // south
     for(int l = 0; l < bh; l++) {
