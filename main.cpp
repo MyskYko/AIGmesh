@@ -20,7 +20,8 @@ int main(int argc, char **argv) {
 
   Bmc_MeshTest(&p, meshsize, meshsize, cycle, 1, 1, iteAMO);
   */
-  
+
+  /*
   extern void interconnectmesh(aigman * p, int N, int T, int W, int fVerbose);
   if(argc < 4) {
     std::cout << "usage aigname meshsize time width" << std::endl;
@@ -35,6 +36,18 @@ int main(int argc, char **argv) {
 
 
   interconnectmesh(&p, meshsize, time, width, 1);
+  */
   
+  extern void hiemesh(aigman * p, int fVerbose);
+  if(argc < 2) {
+    std::cout << "usage aigname" << std::endl;
+    return 1;
+  }
+  std::string aigname = argv[1];
+  aigman p;
+  p.read(aigname);
+  
+  hiemesh(&p, 1);
+
   return 0;
 }
