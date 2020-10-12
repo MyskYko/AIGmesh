@@ -2,6 +2,7 @@
 #include <map>
 #include <vector>
 #include <string>
+#include <queue>
 #include <algorithm>
 #include <chrono>
 
@@ -436,7 +437,30 @@ void hienode::eval() {
   }
 }
 
-void hiemesh(aigman * aig, int fVerbose) {
+void dumpresult(hienode * node, std::ofstream & f) {
+  for(int y = 0; y < 2; y++) {
+    for(int x = 0; x < 2; x++) {
+      for(int i: node->V[x][y]) {
+	f << i << " ";
+      }
+      f << std::endl;
+      for(int i: node->H[x][y]) {
+	f << i << " ";
+      }
+      f << std::endl;
+      if(node->level == 0) {
+	for(int i: node->P[x][y]) {
+	  f << i << " ";
+	}
+	f << std::endl;
+      } else {
+	dumpresult(node->children[x][y], f);
+      }
+    }
+  }
+}
+
+void hiemesh(aigman * aig, std::string resultname, int fVerbose) {
   assert(aig->nLats == 0);
   hienode root;
   root.aig = aig;
@@ -455,4 +479,35 @@ void hiemesh(aigman * aig, int fVerbose) {
   root.width = root.blocksize << 2;
 
   root.eval();
+
+  std::ofstream f(resultname);
+  f << root.level << std::endl;
+  dumpresult(&root, f);
+  /*
+  std::queue<hienode *> q;
+  q.push(&root);
+  while(!q.empty()) {
+    for(int y = 0; y < 2; y++) {
+      for(int x = 0; x < 2; x++) {
+	for(int i: q.front()->V[x][y]) {
+	  f << i << " ";
+	}
+	f << std::endl;
+	for(int i: q.front()->H[x][y]) {
+	  f << i << " ";
+	}
+	f << std::endl;
+	if(q.front()->level == 0) {
+	  for(int i: q.front()->P[x][y]) {
+	    f << i << " ";
+	  }
+	} else {
+	  q.push(q.front()->children[x][y]);
+	}
+      }
+    }
+    q.pop();
+  }
+  */
+  f.close();
 }

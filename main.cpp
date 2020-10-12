@@ -38,16 +38,17 @@ int main(int argc, char **argv) {
   interconnectmesh(&p, meshsize, time, width, 1);
   */
   
-  extern void hiemesh(aigman * p, int fVerbose);
-  if(argc < 2) {
-    std::cout << "usage aigname" << std::endl;
+  extern void hiemesh(aigman * p, std::string resultname, int fVerbose);
+  if(argc < 3) {
+    std::cout << "usage aigname result" << std::endl;
     return 1;
   }
   std::string aigname = argv[1];
+  std::string resname = argv[2];
   aigman p;
   p.read(aigname);
   
-  hiemesh(&p, 1);
+  hiemesh(&p, resname, 1);
 
   return 0;
 }
