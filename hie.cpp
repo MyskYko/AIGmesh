@@ -20,6 +20,82 @@ int clog2(int n) {
   return count;
 }
 
+void comparator(Glucose::SimpSolver * pSat, int a, int b, int c, int d) {
+  pSat->addClause(Glucose::mkLit(c, 1), Glucose::mkLit(a, 0), Glucose::mkLit(b, 0));
+  pSat->addClause(Glucose::mkLit(c, 0), Glucose::mkLit(a, 1));
+  pSat->addClause(Glucose::mkLit(c, 0), Glucose::mkLit(b, 1));
+  
+  pSat->addClause(Glucose::mkLit(d, 1), Glucose::mkLit(a, 0));
+  pSat->addClause(Glucose::mkLit(d, 1), Glucose::mkLit(b, 0));
+  pSat->addClause(Glucose::mkLit(d, 0), Glucose::mkLit(a, 1), Glucose::mkLit(b, 1));
+}
+
+void pwsplit(Glucose::SimpSolver * pSat, std::vector<int> const & a, std::vector<int> & b, std::vector<int> & c) {
+  int n = a.size() / 2;
+  b.resize(n);
+  c.resize(n);
+  for(int i = 0; i < n; i++) {
+    b[i] = pSat->newVar();
+    c[i] = pSat->newVar();
+    comparator(pSat, a[i + i], a[i + i + 1], b[i], c[i]);
+  }
+}
+
+void pwmerge(Glucose::SimpSolver * pSat, std::vector<int> const & a, std::vector<int> const & b, std::vector<int> & c) {
+  std::vector<int> a_next, b_next, d, e;
+  int n = a.size();
+  if(n == 1) {
+    c.push_back(a[0]);
+    c.push_back(b[0]);
+    return;
+  }
+  a_next.resize(n / 2);
+  b_next.resize(n / 2);
+  for(int i = 0; i < n / 2; i++) {
+    a_next[i] = a[i + i];
+    b_next[i] = b[i + i];
+  }
+  pwmerge(pSat, a_next, b_next, d);
+  for(int i = 0; i < n / 2; i++) {
+    a_next[i] = a[i + i + 1];
+    b_next[i] = b[i + i + 1];
+  }
+  pwmerge(pSat, a_next, b_next, e);
+  c.resize(n + n);
+  c[0] = d[0];
+  for(int i = 0; i < n - 1; i++) {
+    c[i + i + 1] = pSat->newVar();
+    c[i + i + 2] = pSat->newVar();
+    comparator(pSat, e[i], d[i + 1], c[i + i + 1], c[i + i + 2]);
+  }
+  c[n + n - 1] = e[n - 1];
+}
+
+void pwsort(Glucose::SimpSolver * pSat, std::vector<int> const & a, std::vector<int> & d) {
+  if(a.size() == 1) {
+    d.push_back(a[0]);
+    return;
+  }
+  std::vector<int> b, c, b_next, c_next;
+  pwsplit(pSat, a, b, c);
+  pwsort(pSat, b, b_next);
+  b.clear();
+  pwsort(pSat, c, c_next);
+  c.clear();
+  pwmerge(pSat, b_next, c_next, d);
+}
+
+void pwnet(Glucose::SimpSolver * pSat, std::vector<int> vVars, int k) {
+  if(vVars.size() <= k) return;
+  std::vector<int> res;
+  int n = clog2(vVars.size());
+  while(vVars.size() != (1 << n)) {
+    vVars.push_back(0);
+  }
+  pwsort(pSat, vVars, res);
+  pSat->addClause(Glucose::mkLit(res[k], 1));
+}
+
 class hienode {
 public:
   aigman * aig;
@@ -77,9 +153,13 @@ void hienode::eval() {
   int nLength = 2;
   int nBlock = nLength * nLength;
   int nDelay = 5; // is 5 enough? I think 7 is max, from right bottom to left top
+
+  // zero
+  pSat->newVar();
+  pSat->addClause(Glucose::mkLit(0, 1));
     
   // variables
-  int headI = 0;
+  int headI = 1;
   int headO = nInputs * nLength;
   int headP = headO + nOutputs * nLength;
   int headV = headP + nData * nBlock;
@@ -88,14 +168,11 @@ void hienode::eval() {
   int nVars = headS + nData * nBlock * nDelay;
   while(nVars >= pSat->nVars()) pSat->newVar();
 
-  int nClause = 0;
-
   // Processor (2-LUT)
   for(int y = 0; y < nLength; y++) {
     for(int x = 0; x < nLength; x++) {
       for(int i = 0; i < nInputs; i++) {
 	pSat->addClause(Glucose::mkLit(i + x * nData + y * nData * nLength + headP, 1));
-	nClause++;
       }
       for(int i = nInputs; i < nData; i++) {
 	int gate = mr[i];
@@ -107,7 +184,6 @@ void hienode::eval() {
 	  vLits.push(Glucose::mkLit(j + x * nData + y * nData * nLength + headP, 0));
 	  vLits.push(Glucose::mkLit(j + x * nData + y * nData * nLength + (nDelay - 1) * nData * nBlock + headH, 0));
 	  pSat->addClause(vLits);
-	  nClause++;
 	}
       }
     }
@@ -124,7 +200,6 @@ void hienode::eval() {
 	  vLits.push(Glucose::mkLit(i + x * nInputs + headI, 0));
 	}
 	pSat->addClause(vLits);
-	nClause++;
       }
       // the other cycles
       for(int k = 1; k < nDelay; k++) {
@@ -141,7 +216,6 @@ void hienode::eval() {
 	    vLits.push(Glucose::mkLit(i + x * nData + (y + 1) * nData * nLength + (k - 1) * nData * nBlock + headV, 0));
 	  }
 	  pSat->addClause(vLits);
-	  nClause++;
 	}
       }
       // prop
@@ -151,7 +225,6 @@ void hienode::eval() {
 	  vLits.push(Glucose::mkLit(i + x * nData + y * nData * nLength + k * nData * nBlock + headS, 1));
 	  vLits.push(Glucose::mkLit(i + x * nData + y * nData * nLength + (k + 1) * nData * nBlock + headS, 0));
 	  pSat->addClause(vLits);
-	  nClause++;
 	}
       }
     }
@@ -166,7 +239,6 @@ void hienode::eval() {
 	vLits.push(Glucose::mkLit(i + x * nData + y * nData * nLength + headV, 1));
 	vLits.push(Glucose::mkLit(i + x * nData + y * nData * nLength + headP, 0));
 	pSat->addClause(vLits);
-	nClause++;
       }
       // the other cycles
       for(int k = 1; k < nDelay; k++) {
@@ -180,7 +252,6 @@ void hienode::eval() {
 	    vLits.push(Glucose::mkLit(i + x * nData + (y - 1) * nData * nLength + (k - 1) * nData * nBlock + headS, 0));
 	  }
 	  pSat->addClause(vLits);
-	  nClause++;
 	}
       }
       // prop
@@ -190,7 +261,6 @@ void hienode::eval() {
 	  vLits.push(Glucose::mkLit(i + x * nData + y * nData * nLength + k * nData * nBlock + headV, 1));
 	  vLits.push(Glucose::mkLit(i + x * nData + y * nData * nLength + (k + 1) * nData * nBlock + headV, 0));
 	  pSat->addClause(vLits);
-	  nClause++;
 	}
       }
     }
@@ -202,7 +272,6 @@ void hienode::eval() {
       // first cycle
       for(int i = 0; i < nData; i++) {
 	pSat->addClause(Glucose::mkLit(i + x * nData + y * nData * nLength + headH, 1));
-	nClause++;
       }
       // the other cycles
       for(int k = 1; k < nDelay; k++) {
@@ -215,7 +284,6 @@ void hienode::eval() {
 	    vLits.push(Glucose::mkLit(i + (x - 1) * nData + y * nData * nLength + (k - 1) * nData * nBlock + headS, 0));
 	  }
 	  pSat->addClause(vLits);
-	  nClause++;
 	}
       }
       // prop
@@ -225,7 +293,6 @@ void hienode::eval() {
 	  vLits.push(Glucose::mkLit(i + x * nData + y * nData * nLength + k * nData * nBlock + headH, 1));
 	  vLits.push(Glucose::mkLit(i + x * nData + y * nData * nLength + (k + 1) * nData * nBlock + headH, 0));
 	  pSat->addClause(vLits);
-	  nClause++;
 	}
       }
     }
@@ -241,7 +308,6 @@ void hienode::eval() {
       vLits.push(Glucose::mkLit(i + y * nOutputs + headO, 1));
       vLits.push(Glucose::mkLit(j + x * nData + y * nData * nLength + (nDelay - 1) * nData * nBlock + headS, 0));
       pSat->addClause(vLits);
-      nClause++;
     }
   }
   for(int i = 0; i < nOutputs; i++) {
@@ -250,7 +316,6 @@ void hienode::eval() {
       vLits.push(Glucose::mkLit(i + y * nOutputs + headO, 0));
     }
     pSat->addClause(vLits);
-    nClause++;
   }
 
   // AMK for Inputs
@@ -259,7 +324,8 @@ void hienode::eval() {
     for(int i = 0; i < nInputs; i++) {
       vVars.push_back(i + x * nInputs + headI);
     }
-    seqaddertree(pSat, vVars, width);
+    //seqaddertree(pSat, vVars, width);
+    pwnet(pSat, vVars, width);
   }
   
   // AMK for Processor
@@ -269,7 +335,8 @@ void hienode::eval() {
       for(int i = 0; i < nData; i++) {
 	vVars.push_back(i + x * nData + y * nData * nLength + headP);
       }
-      seqaddertree(pSat, vVars, blocksize);
+      //seqaddertree(pSat, vVars, blocksize);
+      pwnet(pSat, vVars, blocksize);
     }
   }
 
@@ -280,7 +347,8 @@ void hienode::eval() {
       for(int i = 0; i < nData; i++) {
 	vVars.push_back(i + x * nData + y * nData * nLength + (nDelay - 1) * nData * nBlock + headS);
       }
-      seqaddertree(pSat, vVars, width + width);
+      //seqaddertree(pSat, vVars, width + width);
+      pwnet(pSat, vVars, width + width);
     }
   }
 
@@ -291,7 +359,8 @@ void hienode::eval() {
       for(int i = 0; i < nData; i++) {
 	vVars.push_back(i + x * nData + y * nData * nLength + (nDelay - 1) * nData * nBlock + headV);
       }
-      seqaddertree(pSat, vVars, width);
+      //seqaddertree(pSat, vVars, width);
+      pwnet(pSat, vVars, width);
     }
   }
   
@@ -302,7 +371,8 @@ void hienode::eval() {
       for(int i = 0; i < nData; i++) {
 	vVars.push_back(i + x * nData + y * nData * nLength + (nDelay - 1) * nData * nBlock + headH);
       }
-      seqaddertree(pSat, vVars, width);
+      //seqaddertree(pSat, vVars, width);
+      pwnet(pSat, vVars, width);
     }
   }
 
@@ -312,7 +382,8 @@ void hienode::eval() {
     for(int i = 0; i < nOutputs; i++) {
       vVars.push_back(i + y * nOutputs + headO);
     }
-    seqaddertree(pSat, vVars, width);
+    //seqaddertree(pSat, vVars, width);
+    pwnet(pSat, vVars, width);
   }
 
 
