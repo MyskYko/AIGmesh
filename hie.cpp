@@ -39,6 +39,15 @@ public:
   std::vector<std::vector<hienode *> > children;
 
   void eval();
+
+  ~hienode() {
+    if(!children.empty()) {
+      delete children[0][0];
+      delete children[0][1];
+      delete children[1][0];
+      delete children[1][1];
+    }
+  }
 };
 
 void hienode::eval() {
@@ -481,33 +490,8 @@ void hiemesh(aigman * aig, std::string resultname, int fVerbose) {
   root.eval();
 
   std::ofstream f(resultname);
-  f << root.level << std::endl;
+  f << root.level << " " << aig->nObjs << std::endl;
   dumpresult(&root, f);
-  /*
-  std::queue<hienode *> q;
-  q.push(&root);
-  while(!q.empty()) {
-    for(int y = 0; y < 2; y++) {
-      for(int x = 0; x < 2; x++) {
-	for(int i: q.front()->V[x][y]) {
-	  f << i << " ";
-	}
-	f << std::endl;
-	for(int i: q.front()->H[x][y]) {
-	  f << i << " ";
-	}
-	f << std::endl;
-	if(q.front()->level == 0) {
-	  for(int i: q.front()->P[x][y]) {
-	    f << i << " ";
-	  }
-	} else {
-	  q.push(q.front()->children[x][y]);
-	}
-      }
-    }
-    q.pop();
-  }
-  */
+
   f.close();
 }
