@@ -397,6 +397,25 @@ void hienode::eval() {
     printf("UNSAT\n");
   } else {
     printf("SAT\n");
+
+    for(int x = 0; x < nLength; x++) {
+      printf("input %d:", x);
+      for(int i = 0; i < nInputs; i++) {
+	if(pSat->model[i + x * nInputs + headI] == l_True) {
+	  printf(" %d", i);
+	}
+      }
+      printf("\n");
+    }
+    for(int y = 0; y < nLength; y++) {
+      printf("output %d:", y);
+      for(int i = 0; i < nOutputs; i++) {
+	if(pSat->model[i + y * nOutputs + headO] == l_True) {
+	  printf(" %d", i);
+	}
+      }
+      printf("\n");
+    }
     
     for(int y = 0; y < nLength; y++) {
       for(int x = 0; x < nLength; x++) {

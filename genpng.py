@@ -25,7 +25,6 @@ unit = 12
 imgh = 8
 for i in range(nLevel - 1):
     imgh = 2 * (imgh + 2 ** (i + 1))
-print(imgh)
 imgh = imgh * unit
 imgw = imgh * ratio
 
@@ -71,7 +70,7 @@ def rec(level, offx, offy, height):
                 #P
                 line = f.readline()
                 words = line.split()
-                box(offx2, offy2, longl, longl, words, yellow)
+                box(offx2, offy2, longl * ratio, longl, words, yellow)
             else:
                 #P
                 rec(level - 1, offx2, offy2, longl)
@@ -79,4 +78,4 @@ def rec(level, offx, offy, height):
 
 rec(nLevel - 1, 0, 0, imgh)
 
-img.save("res.png")
+img.save(sys.argv[1] + ".png")

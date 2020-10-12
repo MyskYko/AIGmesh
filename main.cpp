@@ -39,12 +39,12 @@ int main(int argc, char **argv) {
   */
   
   extern void hiemesh(aigman * p, std::string resultname, int fVerbose);
-  if(argc < 3) {
-    std::cout << "usage aigname result" << std::endl;
+  if(argc < 2) {
+    std::cout << "usage aigname" << std::endl;
     return 1;
   }
   std::string aigname = argv[1];
-  std::string resname = argv[2];
+  std::string resname = aigname + ".map.txt";
   aigman p;
   p.read(aigname);
   
