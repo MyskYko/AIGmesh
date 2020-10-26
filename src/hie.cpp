@@ -42,6 +42,7 @@ public:
 };
 
 void hienode::eval() {
+  //gurobi * pSat = new gurobi;
   glucose * pSat = new glucose;
 
   std::vector<int> vLits;
@@ -234,7 +235,7 @@ void hienode::eval() {
     for(int i = 0; i < nInputs; i++) {
       vLits.push_back(i + x * nInputs + headI);
     }
-    pSat->pwnet(vLits, width);
+    pSat->amk(vLits, width);
   }
   
   // AMK for Processor
@@ -244,7 +245,7 @@ void hienode::eval() {
       for(int i = 0; i < nData; i++) {
 	vLits.push_back(i + x * nData + y * nData * nLength + headP);
       }
-      pSat->pwnet(vLits, blocksize);
+      pSat->amk(vLits, blocksize);
     }
   }
 
@@ -255,7 +256,7 @@ void hienode::eval() {
       for(int i = 0; i < nData; i++) {
 	vLits.push_back(i + x * nData + y * nData * nLength + (nDelay - 1) * nData * nBlock + headS);
       }
-      pSat->pwnet(vLits, width + width);
+      pSat->amk(vLits, width + width);
     }
   }
 
@@ -266,7 +267,7 @@ void hienode::eval() {
       for(int i = 0; i < nData; i++) {
 	vLits.push_back(i + x * nData + y * nData * nLength + (nDelay - 1) * nData * nBlock + headV);
       }
-      pSat->pwnet(vLits, width);
+      pSat->amk(vLits, width);
     }
   }
   
@@ -277,7 +278,7 @@ void hienode::eval() {
       for(int i = 0; i < nData; i++) {
 	vLits.push_back(i + x * nData + y * nData * nLength + (nDelay - 1) * nData * nBlock + headH);
       }
-      pSat->pwnet(vLits, width);
+      pSat->amk(vLits, width);
     }
   }
 
@@ -287,9 +288,31 @@ void hienode::eval() {
     for(int i = 0; i < nOutputs; i++) {
       vLits.push_back(i + y * nOutputs + headO);
     }
-    pSat->pwnet(vLits, width);
+    pSat->amk(vLits, width);
   }
 
+  /*
+  {
+    pSat->objective = "minimize \n";
+    for(int y = 0; y < nLength; y++) {
+      for(int x = 0; x < nLength; x++) {
+	for(int i = 0; i < nData; i++) {
+	  pSat->objective += "x" + std::to_string(i + x * nData + y * nData * nLength + (nDelay - 1) * nData * nBlock + headV) + " + ";
+	}
+      }
+    }
+    for(int y = 0; y < nLength; y++) {
+      for(int x = 0; x < nLength; x++) {
+	for(int i = 0; i < nData; i++) {
+	  pSat->objective += "x" + std::to_string(i + x * nData + y * nData * nLength + (nDelay - 1) * nData * nBlock + headH) + " + ";
+	}
+      }
+    }
+    pSat->objective.pop_back();
+    pSat->objective.pop_back();
+    pSat->objective += "\n";
+  }
+  */
 
   // solve
   auto start = std::chrono::system_clock::now();
