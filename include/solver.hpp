@@ -147,7 +147,7 @@ public:
       f.close();
     }
     
-    std::string cmd = "gurobi_cl ResultFile=\"_tbplace.sol\" _tbplace.lp";
+    std::string cmd = "gurobi_cl ResultFile=\"_tbplace.sol\" MIPFocus=1 _tbplace.lp";
     system(cmd.c_str());
 
     model.clear();
