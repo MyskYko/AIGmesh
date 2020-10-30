@@ -22,6 +22,8 @@ public:
   int blocksize; // = 4^level
   int width; // = 4^(level+1)
 
+  double maxusage;
+
   std::vector<std::vector<std::vector<int> > > P;
   std::vector<std::vector<std::vector<int> > > V;
   std::vector<std::vector<std::vector<int> > > H;
@@ -245,7 +247,7 @@ void hienode::eval() {
       for(int i = 0; i < nData; i++) {
 	vLits.push_back(i + x * nData + y * nData * nLength + headP);
       }
-      pSat->amk(vLits, blocksize);
+      pSat->amk(vLits, (int)(blocksize * maxusage));
     }
   }
 
@@ -290,7 +292,7 @@ void hienode::eval() {
     }
     pSat->amk(vLits, width);
   }
-
+  
   /*
   {
     pSat->objective = "minimize \n";
@@ -452,6 +454,7 @@ void hienode::eval() {
       child->level = level - 1;
       child->blocksize = 1 << (2 * child->level);
       child->width = child->blocksize << 2;
+      child->maxusage = child->level == 0? 1: maxusage;
       
       child->eval();
       
@@ -484,6 +487,7 @@ void dumpresult(hienode * node, std::ofstream & f) {
 }
 
 void hiemesh(aigman * aig, std::string resultname, int fVerbose) {
+  double maxusage = 1;
   assert(aig->nLats == 0);
   hienode root;
   root.aig = aig;
@@ -496,10 +500,11 @@ void hiemesh(aigman * aig, std::string resultname, int fVerbose) {
   for(int i: aig->vPos) {
     root.outputs.push_back(i >> 1);
   }
-  int l = clog2(aig->nGates);
+  int l = clog2((int)(aig->nGates / maxusage));
   root.level = l / 2 + l % 2 - 1;
   root.blocksize = 1 << (2 * root.level);
   root.width = root.blocksize << 2;
+  root.maxusage = maxusage;
 
   root.eval();
 
